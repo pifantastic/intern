@@ -39,12 +39,18 @@ define([
 	 * Executes a function; an assertion is thrown if this executed function doesn't
 	 * throw its own assertion.
 	 */
-	var shouldThrow = function (fn, msg) {
+	var shouldThrow = function (fn, msg, errType) {
 		try {
 			fn();
 		}
 		catch (err) {
-			return;
+			if (!errType || err.name === errType) {
+				return;
+			}
+		}
+		if (errType) {
+			throw new assert.AssertionError({ message: 'Expected an error of type '
+				+ errType });
 		}
 		throw new assert.AssertionError({ message: msg || 'Expected an error' });
 	};
@@ -52,11 +58,15 @@ define([
 	tdd.suite('assert', function () {
 		tdd.test('assert', function () {
 			var foo = 'bar';
-			assert(foo == 'bar', 'expected foo to equal `bar`');
+			assert(foo === 'bar', 'expected foo to equal `bar`');
 
 			err(function () {
-				assert(foo == 'baz', 'expected foo to equal `bar`');
+				assert(foo === 'baz', 'expected foo to equal `bar`');
 			}, 'expected foo to equal `bar`');
+		});
+
+		tdd.test('fail', function () {
+			shouldThrow(assert.fail, 'expected AssertionError', 'AssertionError');
 		});
 
 		tdd.test('isTrue', function () {
@@ -91,6 +101,24 @@ define([
 			err(function () {
 				assert.ok('');
 			}, 'expected \'\' to be truthy');
+		});
+
+		tdd.test('notOk', function () {
+			assert.notOk(false);
+			assert.notOk(0);
+			assert.notOk('');
+
+			err(function () {
+				assert.notOk(true);
+			}, 'expected true to be falsy');
+
+			err(function () {
+				assert.notOk(1);
+			}, 'expected 1 to be falsy');
+
+			err(function () {
+				assert.notOk('test');
+			}, 'expected \'test\' to be falsy');
 		});
 
 		tdd.test('isFalse', function () {
@@ -139,7 +167,7 @@ define([
 
 			function CrashyObject() {}
 			CrashyObject.prototype.inspect = function () {
-				throw new Error('Args inspect() called even though the test passed');
+				throw new Error('Arg\'s inspect() called even though the test passed');
 			};
 			assert.instanceOf(new CrashyObject(), CrashyObject);
 		});
@@ -221,6 +249,32 @@ define([
 			err(function () {
 				assert.deepEqual(obj1, obj2);
 			}, 'expected { tea: \'chai\' } to deeply equal { tea: \'black\' }');
+		});
+
+		tdd.test('deepEqual (ordering)', function() {
+			var a = { a: 'b', c: 'd' }
+			, b = { c: 'd', a: 'b' };
+			assert.deepEqual(a, b);
+		});
+
+		tdd.test('deepEqual /regexp/', function() {
+			assert.deepEqual(/a/, /a/);
+			assert.notDeepEqual(/a/, /b/);
+			assert.notDeepEqual(/a/, {});
+			assert.deepEqual(/a/g, /a/g);
+			assert.notDeepEqual(/a/g, /b/g);
+			assert.deepEqual(/a/i, /a/i);
+			assert.notDeepEqual(/a/i, /b/i);
+			assert.deepEqual(/a/m, /a/m);
+			assert.notDeepEqual(/a/m, /b/m);
+		});
+
+		tdd.test('deepEqual (Date)', function() {
+			var a = new Date(1, 2, 3),
+				b = new Date(4, 5, 6);
+			assert.deepEqual(a, a);
+			assert.notDeepEqual(a, b);
+			assert.notDeepEqual(a, {});
 		});
 
 		tdd.test('deepEqual (circular)', function () {
@@ -393,6 +447,23 @@ define([
 			err(function () {
 				assert.include('foobar', 'baz');
 			}, 'expected \'foobar\' to contain \'baz\'');
+
+			err(function () {
+				assert.include(undefined, 'bar');
+			}, 'expected an array or string');
+		});
+
+		tdd.test('notInclude', function () {
+			assert.notInclude('foobar', 'baz');
+			assert.notInclude([ 1, 2, 3 ], 4);
+
+			err(function () {
+				assert.notInclude('foobar', 'bar');
+			}, 'expected \'foobar\' to not contain \'bar\'');
+
+			err(function () {
+				assert.notInclude(undefined, 'bar');
+			}, 'expected an array or string');
 		});
 
 		tdd.test('lengthOf', function () {
@@ -474,7 +545,7 @@ define([
 
 			err(function () {
 				assert.throws(function () { throw new Error('foo'); }, TypeError);
-			}, 'expected [Function] to throw \'TypeError\' but [Error: foo] was thrown');
+			}, 'expected [Function] to throw \'TypeError\' but \'Error: foo\' was thrown');
 
 			err(function () {
 				assert.throws(function () { throw new Error('foo'); }, 'bar');
@@ -486,7 +557,7 @@ define([
 
 			err(function () {
 				assert.throws(function () { throw new Error('foo'); }, TypeError, 'bar');
-			}, 'expected [Function] to throw \'TypeError\' but [Error: foo] was thrown');
+			}, 'expected [Function] to throw \'TypeError\' but \'Error: foo\' was thrown');
 
 			err(function () {
 				assert.throws(function () {});
@@ -502,12 +573,32 @@ define([
 		});
 
 		tdd.test('doesNotThrow', function () {
+			function CustomError(message) {
+				this.name = 'CustomError';
+				this.message = message;
+			}
+			CustomError.prototype = Error.prototype;
+
 			assert.doesNotThrow(function () { });
 			assert.doesNotThrow(function () { }, 'foo');
 
 			err(function () {
 				assert.doesNotThrow(function () { throw new Error('foo'); });
-			}, 'expected [Function] to not throw an error but [Error: foo] was thrown');
+			}, 'expected [Function] to not throw an error but \'Error: foo\' was thrown');
+
+			err(function () {
+				assert.doesNotThrow(function() { throw new CustomError('foo'); });
+			}, 'expected [Function] to not throw an error but \'CustomError: foo\' was thrown');
+		});
+
+		tdd.test('ifError', function() {
+			assert.ifError(false);
+			assert.ifError(null);
+			assert.ifError(undefined);
+
+			err(function () {
+				assert.ifError('foo');
+			}, 'expected \'foo\' to be falsy');
 		});
 
 		tdd.test('operator', function () {
@@ -564,6 +655,34 @@ define([
 			err(function () {
 				assert.closeTo(-10, 20, 29);
 			}, 'expected -10 to be close to 20 +/- 29');
+		});
+
+		tdd.test('members', function() {
+			assert.includeMembers([1, 2, 3], [2, 3]);
+			assert.includeMembers([1, 2, 3], []);
+			assert.includeMembers([1, 2, 3], [3]);
+
+			err(function() {
+				assert.includeMembers([5, 6], [7, 8]);
+			}, 'expected [ 5, 6 ] to be a superset of [ 7, 8 ]');
+
+			err(function() {
+				assert.includeMembers([5, 6], [5, 6, 0]);
+			}, 'expected [ 5, 6 ] to be a superset of [ 5, 6, 0 ]');
+		});
+
+		tdd.test('memberEquals', function() {
+			assert.sameMembers([], []);
+			assert.sameMembers([1, 2, 3], [3, 2, 1]);
+			assert.sameMembers([4, 2], [4, 2]);
+
+			err(function() {
+				assert.sameMembers([], [1, 2]);
+			}, 'expected [] to have the same members as [ 1, 2 ]');
+
+			err(function() {
+				assert.sameMembers([1, 54], [6, 1, 54]);
+			}, 'expected [ 1, 54 ] to have the same members as [ 6, 1, 54 ]');
 		});
 
 		tdd.test('legacy edge cases', function () {

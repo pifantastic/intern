@@ -110,7 +110,7 @@ define([
 			};
 
 			function formatValue(ctx, value, recurseTimes) {
-				/*jshint maxcomplexity:18 */
+				/*jshint maxcomplexity:23 */
 
 				// Provide a hook for user-specified inspect functions.
 				// Check that value is an object with an inspect function on it
@@ -131,6 +131,11 @@ define([
 				// If it's DOM elem, get outer HTML.
 				if (isDOMElement(value)) {
 					return getOuterHTML(value);
+				}
+
+				// Make error with message first say the error
+				if (isError(value)) {
+					return formatError(value);
 				}
 
 				// Look up the keys of the object.
@@ -184,11 +189,6 @@ define([
 				// Make dates with properties first say the date
 				if (isDate(value)) {
 					base = ' ' + Date.prototype.toUTCString.call(value);
-				}
-
-				// Make error with message first say the error
-				if (isError(value)) {
-					return formatError(value);
 				}
 
 				if (keys.length === 0 && (!array || value.length === 0)) {
@@ -261,7 +261,7 @@ define([
 						errorString = 'Error';
 					}
 				}
-				return '[' + errorString + ']';
+				return '\'' + errorString + '\'';
 			}
 
 
@@ -380,11 +380,6 @@ define([
 				return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
 			}
 
-			function isArray(ar) {
-				return ar instanceof Array ||
-				(typeof ar === 'object' && objectToString.call(ar) === '[object Array]');
-			}
-
 			function isRegExp(re) {
 				return typeof re === 'object' && objectToString.call(re) === '[object RegExp]';
 			}
@@ -394,11 +389,29 @@ define([
 			}
 
 			function isError(e) {
-				return typeof e === 'object' && objectToString.call(e) === '[object Error]';
+				//return typeof e === 'object' && objectToString.call(e) === '[object Error]';
+				return typeof e === 'object' && e instanceof Error;
 			}
 
 			return inspect;
 		})();
+
+	/**
+	 * Indicate whether the given object is an array.
+	 */
+	function isArray(ar) {
+		return ar instanceof Array ||
+		(typeof ar === 'object' && objectToString.call(ar) === '[object Array]');
+	}
+
+	/**
+	 * Verify that the given object is an array or a string.
+	 */
+	function assertIsArrayOrString(value, message) {
+		if (!isArray(value) && 'string' !== typeof value) {
+			fail(typeof value, 'Array or string', message || ('expected an array or string'));
+		}
+	}
 
 	/**
 	 * Returns an all-lowercase text value representation of an object via
@@ -506,6 +519,10 @@ define([
 		return assert(value, message || ('expected ' + formatValue(value) + ' to be truthy'));
 	};
 
+	assert.notOk = function (value, message) {
+		return assert(!value, message || ('expected ' + formatValue(value) + ' to be falsy'));
+	};
+
 	assert.equal = function (actual, expected, message) {
 		/*jshint eqeqeq:false */
 		if (actual != expected) {
@@ -544,7 +561,7 @@ define([
 			/*jshint eqeqeq:false */
 
 			function objEquiv(a, b) {
-				/*jshint maxcomplexity:11 */
+				/*jshint maxcomplexity:12 */
 
 				function isArguments(object) {
 					return objectToString.call(object) === '[object Arguments]';
@@ -622,10 +639,23 @@ define([
 				return actual.getTime() === expected.getTime();
 			}
 
+			// equivalent if key RegExp properties are equal.
+			else if (actual instanceof RegExp && expected instanceof RegExp) {
+				return actual.source === expected.source &&
+					actual.global === expected.global &&
+					actual.ignoreCase === expected.ignoreCase &&
+					actual.multiline === expected.multiline;
+			}
+
 			// 7.3. Other pairs that do not both pass typeof value == "object",
 			// equivalence is determined by ==.
 			else if (typeof actual !== 'object' && typeof expected !== 'object') {
 				return actual == expected;
+			}
+			
+			// two objects with different constructors are not equal.
+			else if (actual.constructor !== expected.constructor) {
+				return false;
 			}
 
 			else if (getIndexOf(circularA, actual) !== -1 && getIndexOf(circularA, actual) === getIndexOf(circularB, expected)) {
@@ -742,9 +772,18 @@ define([
 	})();
 
 	assert.include = function (haystack, needle, message) {
+		assertIsArrayOrString(haystack);
 		if (getIndexOf(haystack, needle) === -1) {
 			fail('', needle, message ||
 				('expected ' + formatValue(haystack) + ' to contain ' + formatValue(needle)), 'include', assert.include);
+		}
+	};
+
+	assert.notInclude = function (haystack, needle, message) {
+		assertIsArrayOrString(haystack);
+		if (getIndexOf(haystack, needle) !== -1) {
+			fail('', needle, message ||
+				('expected ' + formatValue(haystack) + ' to not contain ' + formatValue(needle)), 'include', assert.include);
 		}
 	};
 
@@ -860,7 +899,7 @@ define([
 
 	(function () {
 		function throws(shouldThrow, fn, constructor, regexp, message) {
-			/*jshint maxcomplexity:13 */
+			/* jshint maxcomplexity:19 */
 
 			function regexpMatchesError() {
 				if (!error) {
@@ -958,6 +997,32 @@ define([
 			fail(actual, (expected + delta) + ' to ' + (expected - delta), message ||
 				('expected ' + formatValue(actual) + ' to be close to ' + formatValue(expected) + ' +/- ' + formatValue(delta)), 'closeTo', assert.closeTo);
 		}
+	};
+
+	(function () {
+		function isSubsetOf(subset, superset) {
+			return arrayUtil.every(subset, function (item) {
+				return getIndexOf(superset, item) !== -1;
+			});
+		}
+
+		assert.sameMembers = function (superset, subset, message) {
+			assertIsArrayOrString(superset);
+			assertIsArrayOrString(subset);
+			assert(isSubsetOf(superset, subset) && isSubsetOf(subset, superset), message ||
+				'expected ' + inspect(superset) + ' to have the same members as ' + inspect(subset));
+		};
+
+		assert.includeMembers = function (superset, subset, message) {
+			assertIsArrayOrString(superset);
+			assertIsArrayOrString(subset);
+			assert(isSubsetOf(subset, superset), message ||
+				'expected ' + inspect(superset) + ' to be a superset of ' + inspect(subset));
+		};
+	})();
+
+	assert.ifError = function (value, message) {
+		assert(!value, message || ('expected ' + formatValue(value) + ' to be falsy'));
 	};
 
 	return assert;
