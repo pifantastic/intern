@@ -389,7 +389,6 @@ define([
 			}
 
 			function isError(e) {
-				//return typeof e === 'object' && objectToString.call(e) === '[object Error]';
 				return typeof e === 'object' && e instanceof Error;
 			}
 
@@ -899,7 +898,7 @@ define([
 
 	(function () {
 		function throws(shouldThrow, fn, constructor, regexp, message) {
-			/* jshint maxcomplexity:19 */
+			/*jshint maxcomplexity:19 */
 
 			function regexpMatchesError() {
 				if (!error) {

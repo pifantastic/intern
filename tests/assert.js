@@ -25,7 +25,8 @@ define([
 		catch (err) {
 			if ('string' === typeof msg) {
 				assert.equal(err.message, msg, 'Errors should be equal');
-			} else {
+			}
+			else {
 				assert.match(err.msg, msg, 'Errors should be equal');
 			}
 
@@ -57,11 +58,12 @@ define([
 
 	tdd.suite('assert', function () {
 		tdd.test('assert', function () {
+			/*jshint eqeqeq:false */
 			var foo = 'bar';
-			assert(foo === 'bar', 'expected foo to equal `bar`');
+			assert(foo == 'bar', 'expected foo to equal `bar`');
 
 			err(function () {
-				assert(foo === 'baz', 'expected foo to equal `bar`');
+				assert(foo == 'baz', 'expected foo to equal `bar`');
 			}, 'expected foo to equal `bar`');
 		});
 
@@ -251,13 +253,13 @@ define([
 			}, 'expected { tea: \'chai\' } to deeply equal { tea: \'black\' }');
 		});
 
-		tdd.test('deepEqual (ordering)', function() {
-			var a = { a: 'b', c: 'd' }
-			, b = { c: 'd', a: 'b' };
+		tdd.test('deepEqual (ordering)', function () {
+			var a = { a: 'b', c: 'd' },
+				b = { c: 'd', a: 'b' };
 			assert.deepEqual(a, b);
 		});
 
-		tdd.test('deepEqual /regexp/', function() {
+		tdd.test('deepEqual /regexp/', function () {
 			assert.deepEqual(/a/, /a/);
 			assert.notDeepEqual(/a/, /b/);
 			assert.notDeepEqual(/a/, {});
@@ -269,7 +271,7 @@ define([
 			assert.notDeepEqual(/a/m, /b/m);
 		});
 
-		tdd.test('deepEqual (Date)', function() {
+		tdd.test('deepEqual (Date)', function () {
 			var a = new Date(1, 2, 3),
 				b = new Date(4, 5, 6);
 			assert.deepEqual(a, a);
@@ -364,6 +366,7 @@ define([
 
 		tdd.test('isArray', function () {
 			assert.isArray([]);
+			/*jshint -W009 */
 			assert.isArray(new Array());
 
 			err(function () {
@@ -379,12 +382,14 @@ define([
 			}, 'expected [] not to be an array');
 
 			err(function () {
+				/*jshint -W009 */
 				assert.isNotArray(new Array());
 			}, 'expected [] not to be an array');
 		});
 
 		tdd.test('isString', function () {
 			assert.isString('Foo');
+			/*jshint -W053 */
 			assert.isString(new String('foo'));
 
 			err(function () {
@@ -537,6 +542,7 @@ define([
 		});
 
 		tdd.test('throws', function () {
+			/*jshint -W024 */
 			assert.throws(function () { throw new Error('foo'); });
 			assert.throws(function () { throw new Error('bar'); }, 'bar');
 			assert.throws(function () { throw new Error('bar'); }, /bar/);
@@ -587,11 +593,11 @@ define([
 			}, 'expected [Function] to not throw an error but \'Error: foo\' was thrown');
 
 			err(function () {
-				assert.doesNotThrow(function() { throw new CustomError('foo'); });
+				assert.doesNotThrow(function () { throw new CustomError('foo'); });
 			}, 'expected [Function] to not throw an error but \'CustomError: foo\' was thrown');
 		});
 
-		tdd.test('ifError', function() {
+		tdd.test('ifError', function () {
 			assert.ifError(false);
 			assert.ifError(null);
 			assert.ifError(undefined);
@@ -657,30 +663,30 @@ define([
 			}, 'expected -10 to be close to 20 +/- 29');
 		});
 
-		tdd.test('members', function() {
+		tdd.test('members', function () {
 			assert.includeMembers([1, 2, 3], [2, 3]);
 			assert.includeMembers([1, 2, 3], []);
 			assert.includeMembers([1, 2, 3], [3]);
 
-			err(function() {
+			err(function () {
 				assert.includeMembers([5, 6], [7, 8]);
 			}, 'expected [ 5, 6 ] to be a superset of [ 7, 8 ]');
 
-			err(function() {
+			err(function () {
 				assert.includeMembers([5, 6], [5, 6, 0]);
 			}, 'expected [ 5, 6 ] to be a superset of [ 5, 6, 0 ]');
 		});
 
-		tdd.test('memberEquals', function() {
+		tdd.test('memberEquals', function () {
 			assert.sameMembers([], []);
 			assert.sameMembers([1, 2, 3], [3, 2, 1]);
 			assert.sameMembers([4, 2], [4, 2]);
 
-			err(function() {
+			err(function () {
 				assert.sameMembers([], [1, 2]);
 			}, 'expected [] to have the same members as [ 1, 2 ]');
 
-			err(function() {
+			err(function () {
 				assert.sameMembers([1, 54], [6, 1, 54]);
 			}, 'expected [ 1, 54 ] to have the same members as [ 6, 1, 54 ]');
 		});
